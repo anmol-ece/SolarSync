@@ -1,61 +1,19 @@
-// SolarSync Demo Mode Simulator
-// Clearly labeled sample data, never mixed with hardware communication.
+/**
+ * demo.js - Simulation Demo Mode (Person A)
+ * Isolated from real-mode code. Enabled via ?demo=1 or UI toggle.
+ * Displays persistent DEMO banner + amber card tint.
+ * Cycles 5 scenarios every 6 s.
+ */
 
-const DemoSimulator = (function() {
+const DemoManager = (function() {
   let isDemoActive = false;
+  let demoIntervalId = null;
   let scenarioIndex = 0;
 
-  const scenarios = [
+  // Realistic simulation scenarios
+  const SCENARIOS = [
     {
-      name: "Daytime (Streetlight OFF)",
-      data: {
-        wifiConnected: true,
-        gpsValid: true,
-        dateValid: true,
-        timeValid: true,
-        latitude: 12.9716,
-        longitude: 77.5946,
-        satellites: 9,
-        gpsUtc: "08:45:12",
-        localTime: "14:15:12",
-        date: "2026-11-20",
-        sunrise: "06:15",
-        sunset: "17:55",
-        isDaytime: true,
-        lightOn: false,
-        mode: "AUTO",
-        autoReason: "ASTRONOMICAL",
-        gpsFixAgeMs: 850,
-        uptimeSeconds: 4120,
-        firmwareVersion: "0.2.0"
-      }
-    },
-    {
-      name: "Nighttime (Streetlight ON)",
-      data: {
-        wifiConnected: true,
-        gpsValid: true,
-        dateValid: true,
-        timeValid: true,
-        latitude: 12.9716,
-        longitude: 77.5946,
-        satellites: 11,
-        gpsUtc: "14:30:00",
-        localTime: "20:00:00",
-        date: "2026-11-20",
-        sunrise: "06:15",
-        sunset: "17:55",
-        isDaytime: false,
-        lightOn: true,
-        mode: "AUTO",
-        autoReason: "ASTRONOMICAL",
-        gpsFixAgeMs: 420,
-        uptimeSeconds: 6200,
-        firmwareVersion: "0.2.0"
-      }
-    },
-    {
-      name: "GPS Fix Waiting (Cold Start)",
+      name: "Waiting for GPS Fix",
       data: {
         wifiConnected: true,
         gpsValid: false,
@@ -75,11 +33,59 @@ const DemoSimulator = (function() {
         autoReason: "WAITING_FOR_GPS",
         gpsFixAgeMs: null,
         uptimeSeconds: 45,
-        firmwareVersion: "0.2.0"
+        firmwareVersion: "0.2.0-demo"
       }
     },
     {
-      name: "Manual Mode (Streetlight ON)",
+      name: "Daytime - Auto Mode (API Synced)",
+      data: {
+        wifiConnected: true,
+        gpsValid: true,
+        dateValid: true,
+        timeValid: true,
+        latitude: 12.9716,
+        longitude: 77.5946,
+        satellites: 9,
+        gpsUtc: "08:30:15",
+        localTime: "14:00:15",
+        date: "2026-11-20",
+        sunrise: "06:14",
+        sunset: "17:52",
+        isDaytime: true,
+        lightOn: false,
+        mode: "AUTO",
+        autoReason: "ASTRONOMICAL_API",
+        gpsFixAgeMs: 420,
+        uptimeSeconds: 1240,
+        firmwareVersion: "0.2.0-demo"
+      }
+    },
+    {
+      name: "Sunset Transition - Streetlight Activates",
+      data: {
+        wifiConnected: true,
+        gpsValid: true,
+        dateValid: true,
+        timeValid: true,
+        latitude: 12.9716,
+        longitude: 77.5946,
+        satellites: 10,
+        gpsUtc: "12:25:00",
+        localTime: "17:55:00",
+        date: "2026-11-20",
+        sunrise: "06:14",
+        sunset: "17:52",
+        isDaytime: false,
+        lightOn: true,
+        mode: "AUTO",
+        autoReason: "ASTRONOMICAL_API",
+        gpsFixAgeMs: 210,
+        uptimeSeconds: 3600,
+        firmwareVersion: "0.2.0-demo"
+      }
+    },
+    {
+      name: "Night - Light Active",
       data: {
         wifiConnected: true,
         gpsValid: true,
@@ -88,83 +94,114 @@ const DemoSimulator = (function() {
         latitude: 12.9716,
         longitude: 77.5946,
         satellites: 8,
+        gpsUtc: "16:00:00",
+        localTime: "21:30:00",
+        date: "2026-11-20",
+        sunrise: "06:14",
+        sunset: "17:52",
+        isDaytime: false,
+        lightOn: true,
+        mode: "AUTO",
+        autoReason: "ASTRONOMICAL_API",
+        gpsFixAgeMs: 500,
+        uptimeSeconds: 7200,
+        firmwareVersion: "0.2.0-demo"
+      }
+    },
+    {
+      name: "Manual Mode Operator Control",
+      data: {
+        wifiConnected: true,
+        gpsValid: true,
+        dateValid: true,
+        timeValid: true,
+        latitude: 12.9716,
+        longitude: 77.5946,
+        satellites: 9,
         gpsUtc: "09:00:00",
         localTime: "14:30:00",
         date: "2026-11-20",
-        sunrise: "06:15",
-        sunset: "17:55",
+        sunrise: "06:14",
+        sunset: "17:52",
         isDaytime: true,
         lightOn: true,
         mode: "MANUAL",
         autoReason: null,
-        gpsFixAgeMs: 910,
-        uptimeSeconds: 7800,
-        firmwareVersion: "0.2.0"
+        gpsFixAgeMs: 310,
+        uptimeSeconds: 7600,
+        firmwareVersion: "0.2.0-demo"
       }
     }
   ];
 
-  function init() {
+  function init(onDataCallback) {
+    // Check URL parameters for ?demo=1 or demo=true
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("demo") === "1" || CONFIG.demoModeDefault) {
-      enable();
+    const hasDemoParam = urlParams.get('demo') === '1' || urlParams.get('demo') === 'true';
+
+    if (hasDemoParam || CONFIG.demoModeDefault) {
+      startDemo(onDataCallback);
     }
   }
 
-  function enable() {
+  function startDemo(onDataCallback) {
+    if (isDemoActive) return;
     isDemoActive = true;
-    document.getElementById("demo-banner").classList.remove("hidden");
-    document.getElementById("btn-toggle-demo").textContent = "Next Scenario";
+
+    // Show Demo Warning Banner
+    const banner = document.getElementById("demo-banner");
+    if (banner) banner.classList.remove("hidden");
+
+    // Add demo watermark class to body
+    document.body.classList.add("demo-mode-active");
+
+    const toggleBtnLabel = document.getElementById("demo-toggle-label");
+    if (toggleBtnLabel) toggleBtnLabel.textContent = "Live Mode";
+
+    // Immediately trigger first scenario
+    deliverNextScenario(onDataCallback);
+
+    // Cycle scenarios every 6 seconds in demo mode
+    demoIntervalId = setInterval(() => {
+      scenarioIndex = (scenarioIndex + 1) % SCENARIOS.length;
+      deliverNextScenario(onDataCallback);
+    }, 6000);
   }
 
-  function disable() {
+  function stopDemo() {
+    if (!isDemoActive) return;
     isDemoActive = false;
-    document.getElementById("demo-banner").classList.add("hidden");
-    document.getElementById("btn-toggle-demo").textContent = "Demo Mode";
-  }
 
-  function toggle() {
-    if (!isDemoActive) {
-      enable();
-    } else {
-      scenarioIndex = (scenarioIndex + 1) % scenarios.length;
+    if (demoIntervalId) {
+      clearInterval(demoIntervalId);
+      demoIntervalId = null;
     }
+
+    const banner = document.getElementById("demo-banner");
+    if (banner) banner.classList.add("hidden");
+    document.body.classList.remove("demo-mode-active");
+
+    const toggleBtnLabel = document.getElementById("demo-toggle-label");
+    if (toggleBtnLabel) toggleBtnLabel.textContent = "Demo";
   }
 
-  function getCurrentStatus() {
-    const scenario = scenarios[scenarioIndex];
-    return JSON.parse(JSON.stringify(scenario.data));
+  function deliverNextScenario(callback) {
+    if (!isDemoActive) return;
+    const scenario = SCENARIOS[scenarioIndex];
+    // Clone to prevent any caller mutation
+    const payload = JSON.parse(JSON.stringify(scenario.data));
+    callback(payload);
   }
 
-  function setMode(mode) {
-    scenarios[scenarioIndex].data.mode = mode;
-    if (mode === "AUTO") {
-      scenarios[scenarioIndex].data.autoReason = "ASTRONOMICAL";
-      scenarios[scenarioIndex].data.lightOn = !scenarios[scenarioIndex].data.isDaytime;
-    } else {
-      scenarios[scenarioIndex].data.autoReason = null;
-    }
-    return { ok: true, mode: mode, lightOn: scenarios[scenarioIndex].data.lightOn };
-  }
-
-  function setLight(state) {
-    if (scenarios[scenarioIndex].data.mode !== "MANUAL") {
-      return { ok: false, error: "NOT_IN_MANUAL_MODE", message: "Streetlight can only be switched in MANUAL mode." };
-    }
-    const lightOn = (state === "ON");
-    scenarios[scenarioIndex].data.lightOn = lightOn;
-    return { ok: true, lightOn: lightOn };
+  function isActive() {
+    return isDemoActive;
   }
 
   return {
     init,
-    enable,
-    disable,
-    toggle,
-    isActive: () => isDemoActive,
-    getCurrentStatus,
-    setMode,
-    setLight
+    startDemo,
+    stopDemo,
+    isActive
   };
 })();
 

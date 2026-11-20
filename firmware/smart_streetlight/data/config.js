@@ -1,8 +1,24 @@
-// SolarSync Frontend Configuration
+/**
+ * config.js - Configuration for Frontend Dashboard (Person A)
+ */
 const CONFIG = {
-  apiBase: "",             // Empty string = same origin (ESP32 serving). Override with "http://192.168.x.x" for local dev
-  pollInterval: 1500,      // Polling frequency in ms
-  requestTimeout: 3000,    // Timeout per fetch request in ms
-  failureThreshold: 3,     // Consecutive failed polls before marking ESP32 offline
-  demoModeDefault: false   // True to start in simulation demo mode
+  // API base path: default "" (relative, same origin when hosted on ESP32 or mock server)
+  // For local development against a live ESP32 at a known IP, e.g. "http://192.168.1.100"
+  apiBase: "",
+
+  // Polling interval in milliseconds
+  pollIntervalMs: 1500,
+
+  // HTTP fetch timeout in milliseconds
+  requestTimeoutMs: 3000,
+
+  // Consecutive failed polls before showing "ESP32 unreachable"
+  maxConsecutiveFailures: 3,
+
+  // Demo mode default state (off by default)
+  demoModeDefault: false
 };
+
+// Freeze to prevent accidental runtime mutation
+Object.freeze(CONFIG);
+

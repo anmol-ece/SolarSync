@@ -1,251 +1,361 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SolarSync — Smart Streetlight Automation</title>
+  <title>Smart Streetlight | GPS-Based Intelligent Lighting System</title>
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-  <!-- Demo Mode Banner (Hidden by default) -->
-  <div id="demo-banner" class="demo-banner hidden" role="alert">
-    <span>⚠️ DEMO MODE — SAMPLE DATA, NOT FROM HARDWARE</span>
-    <button id="btn-exit-demo" class="btn-demo-exit" title="Exit Demo Mode">Exit Demo</button>
+  <!-- Skip link for accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- Demo Mode Persistent Banner (Hidden in real mode) -->
+  <div id="demo-banner" class="demo-banner hidden" role="alert" aria-live="assertive">
+    <div class="banner-content">
+      <svg class="icon banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <span><strong>DEMO MODE</strong> — SAMPLE DATA ONLY, NOT CONNECTED TO HARDWARE</span>
+      <button id="btn-exit-demo" class="btn btn-sm btn-outline-warning" title="Exit Demo Mode">Exit Demo</button>
+    </div>
   </div>
 
-  <div class="app-container">
-    <!-- Top Bar -->
-    <header class="top-bar">
-      <div class="brand">
-        <div class="brand-icon">
-          <!-- Streetlight / Solar SVG -->
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            stroke-linejoin="round">
-            <path
-              d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-            <circle cx="12" cy="12" r="4" />
-          </svg>
-        </div>
-        <div>
-          <h1 class="brand-title">SOLARSYNC</h1>
-          <p class="brand-subtitle">GPS-Based Intelligent Streetlight Automation</p>
-        </div>
+  <header class="topbar" role="banner">
+    <div class="header-brand">
+      <div class="brand-icon-wrapper" aria-hidden="true">
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          <circle cx="12" cy="12" r="4"/>
+        </svg>
       </div>
-
-      <div class="header-status">
-        <div class="status-pill" id="connection-pill">
-          <span class="status-dot dot-offline" id="connection-dot"></span>
-          <span id="connection-text">Connecting...</span>
-        </div>
-        <div class="system-time" id="header-time-container">
-          <span class="time-label">DEVICE TIME</span>
-          <span class="time-value" id="header-time">--:--:--</span>
-        </div>
-        <button id="btn-toggle-demo" class="btn-secondary-sm" title="Toggle Simulation Demo Mode">Demo Mode</button>
+      <div>
+        <h1 class="system-title">SMART STREETLIGHT</h1>
+        <p class="system-subtitle">GPS-Based Intelligent Lighting System</p>
       </div>
-    </header>
-
-    <!-- Global Offline Warning Banner -->
-    <div id="offline-banner" class="offline-alert hidden" role="alert">
-      <span>⚠️ ESP32 unreachable. Attempting automatic reconnection... Live data is stale.</span>
     </div>
 
-    <!-- Overview Cards (3 Cards) -->
-    <section class="overview-grid">
-      <!-- 1. GPS Status -->
-      <div class="card overview-card">
+    <div class="header-meta">
+      <!-- Connectivity Indicator -->
+      <div class="status-badge" id="esp-status-badge" role="status" aria-live="polite" aria-label="ESP32 connection status">
+        <span class="status-dot" id="esp-status-dot" aria-hidden="true"></span>
+        <span id="esp-status-text">Connecting...</span>
+      </div>
+
+      <!-- ESP32 Clock / Last Updated -->
+      <div class="system-clock">
+        <span class="clock-label">DEVICE TIME (IST)</span>
+        <span class="clock-value" id="topbar-clock" aria-live="off">--:--:--</span>
+        <span class="clock-sub" id="topbar-date">----/--/--</span>
+      </div>
+
+      <!-- Demo toggle button -->
+      <button id="btn-toggle-demo" class="btn btn-sm btn-ghost" title="Toggle Simulation Demo Mode" aria-pressed="false">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="10 8 16 12 10 16 10 8"/>
+        </svg>
+        <span id="demo-toggle-label">Demo</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Unreachable / Error Alert Banner -->
+  <div id="unreachable-alert" class="alert-bar alert-danger hidden" role="alert" aria-live="assertive">
+    <svg class="icon alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <span id="unreachable-message">ESP32 unreachable. Attempting to reconnect...</span>
+  </div>
+
+  <!-- Wi-Fi state warning (wifiConnected:false scenario) -->
+  <div id="wifi-warn-alert" class="alert-bar alert-warn hidden" role="status" aria-live="polite">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <line x1="1" y1="1" x2="23" y2="23"/>
+      <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>
+    </svg>
+    <span>ESP32 is reporting Wi-Fi disconnected. API data may be stale.</span>
+  </div>
+
+  <main id="main-content" class="dashboard-grid">
+    <!-- SECTION B: OVERVIEW CARDS (3 CARDS) -->
+    <section class="overview-section" aria-label="System Overview">
+      <!-- Card 1: GPS Status -->
+      <div class="card overview-card" id="card-gps-overview">
         <div class="card-header">
-          <span class="card-label">GPS STATUS</span>
-          <div class="icon-wrap">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </div>
+          <span class="card-label">GPS Fix Status</span>
+          <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
         </div>
         <div class="overview-body">
-          <div class="overview-primary" id="card-gps-badge">Waiting for fix</div>
-          <div class="overview-sub" id="card-gps-sub">Satellites: -- | Lat/Lon: --</div>
+          <div class="overview-primary" id="overview-gps-fix" aria-live="polite">Waiting...</div>
+          <div class="overview-meta">
+            <span>Satellites: <strong id="overview-satellites">--</strong></span>
+            <span id="overview-gps-signal-badge" class="badge badge-dim">NO FIX</span>
+          </div>
         </div>
       </div>
 
-      <!-- 2. Streetlight Status -->
-      <div class="card overview-card" id="card-light-container">
+      <!-- Card 2: Streetlight Status -->
+      <div class="card overview-card" id="card-light-overview">
         <div class="card-header">
-          <span class="card-label">STREETLIGHT</span>
-          <div class="icon-wrap" id="light-icon-wrap">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.5 1.5 4.5 3 6h8c1.5-1.5 3-3.5 3-6a7 7 0 0 0-7-7z" />
-            </svg>
-          </div>
+          <span class="card-label">Streetlight Output</span>
+          <svg class="card-icon" id="light-bulb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.5 1.5 4.5 3 6h8c1.5-1.5 3-3.5 3-6a7 7 0 0 0-7-7z"/>
+          </svg>
         </div>
         <div class="overview-body">
-          <div class="overview-primary light-state" id="card-light-state">OFF</div>
-          <div class="overview-sub" id="card-light-sub">Relay GPIO 23: LOW</div>
+          <div class="overview-primary" id="overview-light-state" aria-live="polite">OFF</div>
+          <div class="overview-meta">
+            <span>Relay (GPIO 23): <strong id="overview-relay-state">LOW</strong></span>
+            <span id="overview-daynight-badge" class="badge badge-dim">--</span>
+          </div>
         </div>
       </div>
 
-      <!-- 3. Operating Mode -->
-      <div class="card overview-card">
+      <!-- Card 3: Operating Mode -->
+      <div class="card overview-card" id="card-mode-overview">
         <div class="card-header">
-          <span class="card-label">OPERATING MODE</span>
-          <div class="icon-wrap">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-              <path
-                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-          </div>
+          <span class="card-label">Operating Mode</span>
+          <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
         </div>
         <div class="overview-body">
-          <div class="overview-primary mode-badge" id="card-mode-badge">AUTO</div>
-          <div class="overview-sub" id="card-mode-reason">Reason: WAITING_FOR_GPS</div>
+          <div class="overview-primary" id="overview-mode-state" aria-live="polite">AUTO</div>
+          <div class="overview-meta">
+            <span>Automation: <strong id="overview-auto-reason">API Sync</strong></span>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Main Content Grid -->
-    <main class="details-grid">
-      <!-- GPS Information Section -->
-      <section class="card detail-card">
-        <div class="section-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
-            <circle cx="12" cy="12" r="10" />
-            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
-          </svg>
-          <h2>GPS Location & Telemetry</h2>
+    <!-- SECTION C & D: TWO COLUMN DETAILS -->
+    <div class="dashboard-details-grid">
+      <!-- SECTION C: GPS DETAILED INFORMATION -->
+      <section class="card detail-card" id="card-gps-detail" aria-labelledby="heading-gps-detail">
+        <div class="card-header">
+          <h2 id="heading-gps-detail" class="card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            GPS Hardware Telemetry
+          </h2>
+          <span class="telemetry-badge" id="gps-lock-tag">WAITING FOR FIX</span>
         </div>
 
-        <div class="gps-telemetry-grid">
-          <div class="metric-item">
-            <span class="metric-label">Latitude</span>
-            <span class="metric-val" id="gps-lat">--</span>
+        <div class="telemetry-grid">
+          <div class="telemetry-item">
+            <span class="telemetry-label">Latitude</span>
+            <span class="telemetry-value" id="gps-lat">--</span>
           </div>
-          <div class="metric-item">
-            <span class="metric-label">Longitude</span>
-            <span class="metric-val" id="gps-lon">--</span>
+          <div class="telemetry-item">
+            <span class="telemetry-label">Longitude</span>
+            <span class="telemetry-value" id="gps-lon">--</span>
           </div>
-          <div class="metric-item">
-            <span class="metric-label">Satellites in View</span>
-            <span class="metric-val" id="gps-sats">--</span>
+          <div class="telemetry-item">
+            <span class="telemetry-label">Satellites in View</span>
+            <span class="telemetry-value" id="gps-sats">--</span>
           </div>
-          <div class="metric-item">
-            <span class="metric-label">Fix Staleness</span>
-            <span class="metric-val" id="gps-age">--</span>
+          <div class="telemetry-item">
+            <span class="telemetry-label">Fix Staleness</span>
+            <span class="telemetry-value" id="gps-fix-age">--</span>
           </div>
-          <div class="metric-item">
-            <span class="metric-label">GPS Date</span>
-            <span class="metric-val" id="gps-date">--</span>
+          <div class="telemetry-item">
+            <span class="telemetry-label">GPS UTC Date</span>
+            <span class="telemetry-value" id="gps-date">--</span>
           </div>
-          <div class="metric-item">
-            <span class="metric-label">GPS UTC Time</span>
-            <span class="metric-val" id="gps-utc">--</span>
+          <div class="telemetry-item">
+            <span class="telemetry-label">GPS UTC Time</span>
+            <span class="telemetry-value" id="gps-utc-time">--</span>
           </div>
-          <div class="metric-item highlight-metric">
-            <span class="metric-label">Local Time (IST UTC+5:30)</span>
-            <span class="metric-val accent-val" id="gps-local">--</span>
+          <div class="telemetry-item">
+            <span class="telemetry-label">Local Time (IST)</span>
+            <span class="telemetry-value highlight" id="gps-local-time">--</span>
           </div>
+          <div class="telemetry-item">
+            <span class="telemetry-label">Device Uptime</span>
+            <span class="telemetry-value" id="sys-uptime">--</span>
+          </div>
+        </div>
+
+        <div class="gps-notice-box" id="gps-notice" role="status">
+          <svg class="icon notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <span id="gps-notice-text">Acquiring satellite locks. Place GPS antenna near open sky.</span>
         </div>
       </section>
 
-      <!-- Solar Schedule Section -->
-      <section class="card detail-card">
-        <div class="section-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
-            <path d="M17 18a5 5 0 0 0-10 0" />
-            <line x1="12" y1="2" x2="12" y2="9" />
-            <line x1="4.22" y1="10.22" x2="5.64" y2="11.64" />
-            <line x1="1" y1="18" x2="3" y2="18" />
-            <line x1="21" y1="18" x2="23" y2="18" />
-            <line x1="18.36" y1="11.64" x2="19.78" y2="10.22" />
-            <line x1="23" y1="22" x2="1" y2="22" />
-          </svg>
-          <h2>Sunrise & Sunset Schedule</h2>
-          <span class="api-tag">Sunrise-Sunset API</span>
+      <!-- SECTION D: SUNRISE & SUNSET SCHEDULE -->
+      <section class="card detail-card" id="card-solar-detail" aria-labelledby="heading-solar-detail">
+        <div class="card-header">
+          <h2 id="heading-solar-detail" class="card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M17 18a5 5 0 0 0-10 0"/>
+              <line x1="12" y1="9" x2="12" y2="2"/>
+              <line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/>
+              <line x1="1" y1="18" x2="3" y2="18"/>
+              <line x1="21" y1="18" x2="23" y2="18"/>
+              <line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/>
+              <line x1="23" y1="22" x2="1" y2="22"/>
+            </svg>
+            Solar Timings (Sunrise-Sunset API)
+          </h2>
+          <span class="badge" id="solar-api-tag">API SYNCED</span>
         </div>
 
-        <div class="solar-timing-container">
-          <div class="solar-card sunrise-card">
-            <div class="solar-badge-header">
-              <span class="solar-icon">🌅</span>
-              <span class="solar-label">SUNRISE (IST)</span>
+        <div class="solar-timings-grid">
+          <div class="solar-event-card dawn">
+            <div class="solar-icon-wrapper" aria-hidden="true">
+              <svg class="solar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v6M4.93 10.93l4.24-4.24M2 18h4M18 18h4M14.83 6.69l4.24 4.24"/>
+                <path d="M12 18a6 6 0 0 0 6-6H6a6 6 0 0 0 6 6z"/>
+                <line x1="2" y1="22" x2="22" y2="22"/>
+              </svg>
             </div>
-            <div class="solar-time" id="val-sunrise">--:--</div>
-            <div class="solar-desc">Streetlight turns OFF</div>
-          </div>
-
-          <div class="solar-card sunset-card">
-            <div class="solar-badge-header">
-              <span class="solar-icon">🌇</span>
-              <span class="solar-label">SUNSET (IST)</span>
+            <div class="solar-event-info">
+              <span class="event-name">SUNRISE (LIGHT OFF)</span>
+              <span class="event-time" id="solar-sunrise-time">--:--</span>
+              <span class="event-desc">Streetlight deactivates</span>
             </div>
-            <div class="solar-time" id="val-sunset">--:--</div>
-            <div class="solar-desc">Streetlight turns ON</div>
+          </div>
+
+          <div class="solar-event-card dusk">
+            <div class="solar-icon-wrapper" aria-hidden="true">
+              <svg class="solar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 10V4M4.93 10.93l4.24-4.24M2 18h4M18 18h4M14.83 6.69l4.24 4.24"/>
+                <path d="M12 18a6 6 0 0 0 6-6H6a6 6 0 0 0 6 6z"/>
+                <line x1="2" y1="22" x2="22" y2="22"/>
+                <line x1="12" y1="14" x2="12" y2="20"/>
+              </svg>
+            </div>
+            <div class="solar-event-info">
+              <span class="event-name">SUNSET (LIGHT ON)</span>
+              <span class="event-time" id="solar-sunset-time">--:--</span>
+              <span class="event-desc">Streetlight activates</span>
+            </div>
           </div>
         </div>
 
-        <div class="solar-state-banner" id="solar-state-container">
-          <span class="state-icon" id="solar-state-icon">☀️</span>
-          <span class="state-text" id="solar-state-text">Daylight Period — Automation target: OFF</span>
+        <!-- Visual Day/Night Solar Timeline -->
+        <div class="timeline-container" aria-label="Day/Night Progress Timeline">
+          <div class="timeline-labels">
+            <span>Sunrise <strong id="timeline-sunrise-lbl">--:--</strong></span>
+            <span class="timeline-next-event" id="timeline-countdown" aria-live="off">Next Event: --</span>
+            <span>Sunset <strong id="timeline-sunset-lbl">--:--</strong></span>
+          </div>
+          <div class="timeline-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-label="Daylight progress">
+            <div class="timeline-progress" id="timeline-progress-bar"></div>
+            <div class="timeline-marker" id="timeline-current-marker" title="Current Time"></div>
+          </div>
+          <div class="timeline-footer">
+            <span id="astronomical-state-text" aria-live="polite">Astronomical State: Determining...</span>
+          </div>
         </div>
       </section>
+    </div>
 
-      <!-- Control Panel -->
-      <section class="card detail-card control-panel">
-        <div class="section-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
-            <rect x="2" y="4" width="20" height="16" rx="2" />
-            <line x1="6" y1="12" x2="10" y2="12" />
-            <line x1="14" y1="12" x2="18" y2="12" />
+    <!-- SECTION E: CONTROL PANEL -->
+    <section class="card control-card" id="card-control-panel" aria-labelledby="heading-control-panel">
+      <div class="card-header">
+        <h2 id="heading-control-panel" class="card-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
-          <h2>Control Panel</h2>
-        </div>
-
-        <div class="control-row">
-          <div class="control-label-group">
-            <span class="control-title">Operating Mode</span>
-            <span class="control-desc">Select automatic astronomical scheduling or manual override</span>
-          </div>
-          <div class="mode-switch-group">
-            <button id="btn-mode-auto" class="btn-toggle active" data-mode="AUTO">AUTO</button>
-            <button id="btn-mode-manual" class="btn-toggle" data-mode="MANUAL">MANUAL</button>
-          </div>
-        </div>
-
-        <div class="control-row manual-row" id="manual-controls">
-          <div class="control-label-group">
-            <span class="control-title">Manual Relay Trigger</span>
-            <span class="control-desc" id="manual-desc">Available only in MANUAL mode</span>
-          </div>
-          <div class="manual-button-group">
-            <button id="btn-light-on" class="btn-action btn-on" disabled>TURN ON</button>
-            <button id="btn-light-off" class="btn-action btn-off" disabled>TURN OFF</button>
-          </div>
-        </div>
-
-        <!-- Inline Status & Feedback Message -->
-        <div id="control-feedback" class="feedback-msg hidden"></div>
-      </section>
-    </main>
-
-    <!-- Footer -->
-    <footer class="app-footer">
-      <div class="footer-left">
-        <span>Firmware: <strong id="foot-fw-ver">--</strong></span>
-        <span>•</span>
-        <span>Uptime: <strong id="foot-uptime">--</strong></span>
+          System Operating Controls
+        </h2>
+        <div id="control-spinner" class="spinner hidden" aria-label="Executing command..." role="status"></div>
       </div>
-      <div class="footer-right">
-        <span>Hardware: ESP32 DevKit • GPS NEO-6M • Relay GPIO 23</span>
-      </div>
-    </footer>
-  </div>
 
+      <div class="control-layout">
+        <!-- Mode Switcher -->
+        <div class="control-group">
+          <label class="control-group-title" id="mode-toggle-label">Operating Mode</label>
+          <div class="mode-toggle-group" role="radiogroup" aria-labelledby="mode-toggle-label">
+            <button type="button" id="btn-mode-auto" class="btn btn-mode active" role="radio" aria-checked="true">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+              <span>AUTOMATIC</span>
+            </button>
+            <button type="button" id="btn-mode-manual" class="btn btn-mode" role="radio" aria-checked="false">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/>
+                <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/>
+                <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/>
+                <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+              </svg>
+              <span>MANUAL</span>
+            </button>
+          </div>
+          <p class="control-hint" id="mode-hint-text">
+            Automatic mode controls relay via Sunrise-Sunset API timings. Manual buttons are disabled.
+          </p>
+        </div>
+
+        <!-- Manual Actuation -->
+        <div class="control-group">
+          <label class="control-group-title" id="manual-btn-label">Manual Relay Control (GPIO 23)</label>
+          <div class="manual-button-group" aria-labelledby="manual-btn-label">
+            <button type="button" id="btn-light-on" class="btn btn-action btn-on" disabled aria-disabled="true">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+              <span>TURN LIGHT ON</span>
+            </button>
+            <button type="button" id="btn-light-off" class="btn btn-action btn-off" disabled aria-disabled="true">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                <line x1="12" y1="2" x2="12" y2="12"/>
+              </svg>
+              <span>TURN LIGHT OFF</span>
+            </button>
+          </div>
+          <div id="command-feedback" class="feedback-msg hidden" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="system-footer" role="contentinfo">
+    <div class="footer-left">
+      <span>Firmware: <span id="footer-fw-version">v0.2.0</span></span>
+      <span aria-hidden="true">•</span>
+      <span>Contract: v1.1</span>
+      <span aria-hidden="true">•</span>
+      <span>Relay IN1: GPIO 23 (Active-HIGH)</span>
+    </div>
+    <div class="footer-right">
+      <span id="footer-poll-time">Last update: Never</span>
+    </div>
+  </footer>
+
+  <!-- Scripts: config -> demo -> app -->
   <script src="config.js"></script>
   <script src="demo.js"></script>
   <script src="script.js"></script>
 </body>
-
 </html>
+
