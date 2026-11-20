@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SolarSync — Smart Streetlight Automation</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <!-- Demo Mode Banner (Hidden by default) -->
+  <div id="demo-banner" class="demo-banner hidden" role="alert">
+    <span>⚠️ DEMO MODE — SAMPLE DATA, NOT FROM HARDWARE</span>
+    <button id="btn-exit-demo" class="btn-demo-exit" title="Exit Demo Mode">Exit Demo</button>
+  </div>
+
+  <div class="app-container">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="brand">
+        <div class="brand-icon">
+          <!-- Streetlight / Solar SVG -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path
+              d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+            <circle cx="12" cy="12" r="4" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">SOLARSYNC</h1>
+          <p class="brand-subtitle">GPS-Based Intelligent Streetlight Automation</p>
+        </div>
+      </div>
+
+      <div class="header-status">
+        <div class="status-pill" id="connection-pill">
+          <span class="status-dot dot-offline" id="connection-dot"></span>
+          <span id="connection-text">Connecting...</span>
+        </div>
+        <div class="system-time" id="header-time-container">
+          <span class="time-label">DEVICE TIME</span>
+          <span class="time-value" id="header-time">--:--:--</span>
+        </div>
+        <button id="btn-toggle-demo" class="btn-secondary-sm" title="Toggle Simulation Demo Mode">Demo Mode</button>
+      </div>
+    </header>
+
+    <!-- Global Offline Warning Banner -->
+    <div id="offline-banner" class="offline-alert hidden" role="alert">
+      <span>⚠️ ESP32 unreachable. Attempting automatic reconnection... Live data is stale.</span>
+    </div>
+
+    <!-- Overview Cards (3 Cards) -->
+    <section class="overview-grid">
+      <!-- 1. GPS Status -->
+      <div class="card overview-card">
+        <div class="card-header">
+          <span class="card-label">GPS STATUS</span>
+          <div class="icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </div>
+        </div>
+        <div class="overview-body">
+          <div class="overview-primary" id="card-gps-badge">Waiting for fix</div>
+          <div class="overview-sub" id="card-gps-sub">Satellites: -- | Lat/Lon: --</div>
+        </div>
+      </div>
+
+      <!-- 2. Streetlight Status -->
+      <div class="card overview-card" id="card-light-container">
+        <div class="card-header">
+          <span class="card-label">STREETLIGHT</span>
+          <div class="icon-wrap" id="light-icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.5 1.5 4.5 3 6h8c1.5-1.5 3-3.5 3-6a7 7 0 0 0-7-7z" />
+            </svg>
+          </div>
+        </div>
+        <div class="overview-body">
+          <div class="overview-primary light-state" id="card-light-state">OFF</div>
+          <div class="overview-sub" id="card-light-sub">Relay GPIO 23: LOW</div>
+        </div>
+      </div>
+
+      <!-- 3. Operating Mode -->
+      <div class="card overview-card">
+        <div class="card-header">
+          <span class="card-label">OPERATING MODE</span>
+          <div class="icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </div>
+        </div>
+        <div class="overview-body">
+          <div class="overview-primary mode-badge" id="card-mode-badge">AUTO</div>
+          <div class="overview-sub" id="card-mode-reason">Reason: WAITING_FOR_GPS</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Content Grid -->
+    <main class="details-grid">
+      <!-- GPS Information Section -->
+      <section class="card detail-card">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
+            <circle cx="12" cy="12" r="10" />
+            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+          </svg>
+          <h2>GPS Location & Telemetry</h2>
+        </div>
+
+        <div class="gps-telemetry-grid">
+          <div class="metric-item">
+            <span class="metric-label">Latitude</span>
+            <span class="metric-val" id="gps-lat">--</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Longitude</span>
+            <span class="metric-val" id="gps-lon">--</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Satellites in View</span>
+            <span class="metric-val" id="gps-sats">--</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Fix Staleness</span>
+            <span class="metric-val" id="gps-age">--</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">GPS Date</span>
+            <span class="metric-val" id="gps-date">--</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">GPS UTC Time</span>
+            <span class="metric-val" id="gps-utc">--</span>
+          </div>
+          <div class="metric-item highlight-metric">
+            <span class="metric-label">Local Time (IST UTC+5:30)</span>
+            <span class="metric-val accent-val" id="gps-local">--</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Solar Schedule Section -->
+      <section class="card detail-card">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
+            <path d="M17 18a5 5 0 0 0-10 0" />
+            <line x1="12" y1="2" x2="12" y2="9" />
+            <line x1="4.22" y1="10.22" x2="5.64" y2="11.64" />
+            <line x1="1" y1="18" x2="3" y2="18" />
+            <line x1="21" y1="18" x2="23" y2="18" />
+            <line x1="18.36" y1="11.64" x2="19.78" y2="10.22" />
+            <line x1="23" y1="22" x2="1" y2="22" />
+          </svg>
+          <h2>Sunrise & Sunset Schedule</h2>
+          <span class="api-tag">Sunrise-Sunset API</span>
+        </div>
+
+        <div class="solar-timing-container">
+          <div class="solar-card sunrise-card">
+            <div class="solar-badge-header">
+              <span class="solar-icon">🌅</span>
+              <span class="solar-label">SUNRISE (IST)</span>
+            </div>
+            <div class="solar-time" id="val-sunrise">--:--</div>
+            <div class="solar-desc">Streetlight turns OFF</div>
+          </div>
+
+          <div class="solar-card sunset-card">
+            <div class="solar-badge-header">
+              <span class="solar-icon">🌇</span>
+              <span class="solar-label">SUNSET (IST)</span>
+            </div>
+            <div class="solar-time" id="val-sunset">--:--</div>
+            <div class="solar-desc">Streetlight turns ON</div>
+          </div>
+        </div>
+
+        <div class="solar-state-banner" id="solar-state-container">
+          <span class="state-icon" id="solar-state-icon">☀️</span>
+          <span class="state-text" id="solar-state-text">Daylight Period — Automation target: OFF</span>
+        </div>
+      </section>
+
+      <!-- Control Panel -->
+      <section class="card detail-card control-panel">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
+            <rect x="2" y="4" width="20" height="16" rx="2" />
+            <line x1="6" y1="12" x2="10" y2="12" />
+            <line x1="14" y1="12" x2="18" y2="12" />
+          </svg>
+          <h2>Control Panel</h2>
+        </div>
+
+        <div class="control-row">
+          <div class="control-label-group">
+            <span class="control-title">Operating Mode</span>
+            <span class="control-desc">Select automatic astronomical scheduling or manual override</span>
+          </div>
+          <div class="mode-switch-group">
+            <button id="btn-mode-auto" class="btn-toggle active" data-mode="AUTO">AUTO</button>
+            <button id="btn-mode-manual" class="btn-toggle" data-mode="MANUAL">MANUAL</button>
+          </div>
+        </div>
+
+        <div class="control-row manual-row" id="manual-controls">
+          <div class="control-label-group">
+            <span class="control-title">Manual Relay Trigger</span>
+            <span class="control-desc" id="manual-desc">Available only in MANUAL mode</span>
+          </div>
+          <div class="manual-button-group">
+            <button id="btn-light-on" class="btn-action btn-on" disabled>TURN ON</button>
+            <button id="btn-light-off" class="btn-action btn-off" disabled>TURN OFF</button>
+          </div>
+        </div>
+
+        <!-- Inline Status & Feedback Message -->
+        <div id="control-feedback" class="feedback-msg hidden"></div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-left">
+        <span>Firmware: <strong id="foot-fw-ver">--</strong></span>
+        <span>•</span>
+        <span>Uptime: <strong id="foot-uptime">--</strong></span>
+      </div>
+      <div class="footer-right">
+        <span>Hardware: ESP32 DevKit • GPS NEO-6M • Relay GPIO 23</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="demo.js"></script>
+  <script src="script.js"></script>
+</body>
+
+</html>

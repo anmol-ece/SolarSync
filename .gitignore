@@ -1,0 +1,10 @@
+# Secrets & local config
+secrets.h
+firmware/smart_streetlight/secrets.h
+
+# Build artifacts
+.pio/
+build/
+*.bin
+*.elf
+
